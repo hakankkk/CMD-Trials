@@ -1,21 +1,21 @@
-@echo off
-
-SET count=0
-SET /p subnet=ip araligini girin (for example, 192.168.0)
-SET /p hostrange= host araligini girin ( for example, 25)
 
 
-:start
-SET /a count=%count%+1
+$subnet = Read-Host "Enter the subnet (e.g., 192.168.0)"
+$hostrange = Read-Host "Enter the host range (e.g., 1-25)"
+$start, $end = $hostrange -split '-'
 
+Write-Host "Scanning $subnet.$start to $subnet.$end..."
 
-cls
-ECHO. & ECHO Trying %subnet%.%count% & ECHO.
+$results = for ($i = $start; $i -le $end; $i++) {
+    $ip = "$subnet.$i"
+    $job = Start-Job -ScriptBlock { Test-NetConnection -ComputerName $args[0] -Count 1 } -ArgumentList $ip
+    $job
+}
 
-ping -n 1 -w 1000 %subnet%.%count% >nul  
-IF %errorlevel%==0 echo %subnet%.%count% UP >> c:\ipsonuc.log  
-IF %errorlevel%==1 echo %subnet%.%count% DOWN >> c:\ipsonuc.log
-
-IF %count%==%hostrange% goto :eof
-
-GOTO start
+$results | Receive-Job | ForEach-Object {
+    if ($_.PingSucceeded) {
+        Write-Host "$($_.ComputerName) is UP"
+    } else {
+        Write-Host "$($_.ComputerName) is DOWN"
+    }
+}
